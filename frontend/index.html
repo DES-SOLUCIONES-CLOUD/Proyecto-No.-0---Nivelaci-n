@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OKF Platform — Conversión Documental a Bundles de Conocimiento</title>
+  <meta name="description" content="Plataforma multiusuario para convertir documentos a bundles OKF (Open Knowledge Format). Backend en Go, procesamiento asíncrono con workers." />
+  <meta name="theme-color" content="#0a0e1a" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════ NAVBAR ══════════════════════════════════════════════════════════ -->
+  <nav class="navbar" id="navbar" style="display:none">
+    <a href="#" class="navbar-brand">
+      <div class="logo-icon">📦</div>
+      OKF Platform
+    </a>
+    <div class="navbar-user">
+      Hola, <span class="navbar-username" id="navbar-username"></span>
+      <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <!-- ══════ PÁGINA: AUTENTICACIÓN ══════════════════════════════════════════ -->
+  <div class="page" id="page-auth">
+    <div class="auth-container">
+      <div class="auth-card">
+
+        <!-- Logo -->
+        <div class="auth-logo">
+          <div class="auth-logo-icon">📦</div>
+          <h1>OKF Platform</h1>
+          <p>Conversión documental a bundles de conocimiento</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
+          <button class="auth-tab" data-tab="register">Crear cuenta</button>
+        </div>
+
+        <!-- Form: Login -->
+        <form class="auth-form active" id="form-login" style="display:block">
+          <div id="login-error" class="form-error"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-email">Email</label>
+            <input class="form-input" type="email" id="login-email"
+                   placeholder="tu@email.com" required autocomplete="email" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-password">Contraseña</label>
+            <input class="form-input" type="password" id="login-password"
+                   placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+
+          <button class="btn btn-primary btn-full" type="submit" id="btn-login">
+            Iniciar sesión
+          </button>
+        </form>
+
+        <!-- Form: Registro -->
+        <form class="auth-form" id="form-register" style="display:none">
+          <div id="register-error" class="form-error"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-username">Nombre de usuario</label>
+            <input class="form-input" type="text" id="reg-username"
+                   placeholder="juandavid" required minlength="3" maxlength="50"
+                   autocomplete="username" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email</label>
+            <input class="form-input" type="email" id="reg-email"
+                   placeholder="tu@email.com" required autocomplete="email" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Contraseña</label>
+            <input class="form-input" type="password" id="reg-password"
+                   placeholder="Mínimo 8 caracteres" required minlength="8"
+                   autocomplete="new-password" />
+          </div>
+
+          <button class="btn btn-primary btn-full" type="submit" id="btn-register">
+            Crear cuenta
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div><!-- /page-auth -->
+
+  <!-- ══════ PÁGINA: DASHBOARD ═══════════════════════════════════════════════ -->
+  <div class="page" id="page-dashboard">
+    <div class="dashboard">
+
+      <!-- Header -->
+      <div class="dashboard-header">
+        <div>
+          <h2>📦 Mis Bundles OKF</h2>
+          <p>Convierte documentos en bundles de conocimiento estructurados</p>
+        </div>
+        <button class="btn btn-secondary" id="btn-refresh">🔄 Actualizar</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total trabajos</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Completados</div>
+          <div class="stat-value success" id="stat-completed">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">En proceso</div>
+          <div class="stat-value pending" id="stat-pending">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fallidos</div>
+          <div class="stat-value error" id="stat-failed">0</div>
+        </div>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="upload-zone">
+        <span class="upload-icon">📤</span>
+        <h3>Arrastra tu documento aquí o haz clic para seleccionar</h3>
+        <p>El documento se procesará de forma asíncrona. Recibirás un ID de trabajo de inmediato.</p>
+        <div class="upload-formats">
+          <span class="format-badge">.md</span>
+          <span class="format-badge">.html</span>
+          <span class="format-badge">.txt</span>
+        </div>
+        <input type="file" id="file-input" accept=".md,.markdown,.html,.htm,.txt" />
+      </div>
+
+      <!-- Upload Progress -->
+      <div class="upload-progress" id="upload-progress">
+        <div class="progress-header">
+          <span class="progress-label" id="progress-label">Subiendo...</span>
+          <span class="progress-job-id" id="progress-job-id"></span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+      </div>
+
+      <!-- Jobs List -->
+      <div class="section-header">
+        <span class="section-title">Trabajos de conversión</span>
+      </div>
+      <div class="jobs-list" id="jobs-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <h3>No hay trabajos aún</h3>
+          <p>Sube tu primer documento para comenzar</p>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /page-dashboard -->
+
+</div><!-- /app -->
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Estilos inline para tabs alternadas -->
+<style>
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+</style>
+
+<script src="js/app.js"></script>
+</body>
+</html>
