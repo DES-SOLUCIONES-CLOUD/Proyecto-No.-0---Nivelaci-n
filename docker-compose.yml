@@ -82,7 +82,6 @@ services:
     build:
       context: ./worker
       dockerfile: Dockerfile
-    container_name: okf_worker
     restart: unless-stopped
     env_file:
       - .env

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"okf-worker/converter"
 )
@@ -43,15 +44,16 @@ func Generate(jobID, filename, format string, units []converter.Unit) (*Generati
 	log(fmt.Sprintf("Unidades lógicas detectadas: %d", len(units)))
 
 	for i, u := range units {
-		log(fmt.Sprintf("  Unidad %d: '%s' → %s (%d chars)", i+1, u.Title, u.Slug, len(u.Content)))
+		msg := fmt.Sprintf("  Unidad %d: '%s' → %s (%d chars)", i+1, u.Title, u.Slug, utf8.RuneCountInString(u.Content))
+		if u.FallbackSlugUsed {
+			msg += " [Slug de respaldo usado]"
+		}
+		log(msg)
 	}
 
 	// Generar index.md
-	indexMD := generateIndex(filename, jobID, units, now)
+	indexMD := generateIndex(filename, jobID, units, now, log)
 	log("index.md generado con navegación y metadatos")
-
-	// Generar log.md
-	logMD := generateLogMD(logEntries, filename, jobID, now)
 
 	// Crear ZIP en memoria
 	var buf bytes.Buffer
@@ -90,7 +92,7 @@ func Generate(jobID, filename, format string, units []converter.Unit) (*Generati
 }
 
 // generateIndex genera el contenido del archivo index.md con navegación.
-func generateIndex(filename, jobID string, units []converter.Unit, t time.Time) string {
+func generateIndex(filename, jobID string, units []converter.Unit, t time.Time, log func(string)) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Bundle OKF — Índice\n\n")
@@ -101,8 +103,20 @@ func generateIndex(filename, jobID string, units []converter.Unit, t time.Time) 
 	sb.WriteString("---\n\n")
 	sb.WriteString("## Navegación\n\n")
 
+	titleTotals := make(map[string]int)
+	for _, u := range units {
+		titleTotals[u.Title]++
+	}
+	titleCurrent := make(map[string]int)
+
 	for i, unit := range units {
-		sb.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, unit.Title, unit.Slug))
+		title := unit.Title
+		if titleTotals[title] > 1 {
+			titleCurrent[title]++
+			title = fmt.Sprintf("%s (%d/%d)", title, titleCurrent[title], titleTotals[title])
+			log(fmt.Sprintf("  - Título duplicado detectado: se usará '%s' en el índice para %s", title, unit.Slug))
+		}
+		sb.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, unit.Slug))
 	}
 
 	sb.WriteString("\n---\n\n")

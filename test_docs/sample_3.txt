@@ -1,0 +1,5 @@
+La arquitectura en la nube es la forma en que se combinan componentes tecnológicos individuales para crear una nube, en la que los recursos se agrupan mediante tecnología de virtualización.
+
+El almacenamiento en la nube permite guardar datos y archivos en Internet a través de un proveedor de computación en la nube al que se accede mediante la red pública de Internet o una conexión de red privada dedicada.
+
+La computación sin servidor (Serverless) es un modelo de ejecución en el que el proveedor de la nube asigna dinámicamente, y luego cobra al usuario, solo por los recursos de cómputo y el almacenamiento necesarios para ejecutar una porción particular de código.

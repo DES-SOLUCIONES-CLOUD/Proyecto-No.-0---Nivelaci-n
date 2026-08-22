@@ -61,7 +61,7 @@ func main() {
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	authH := handlers.NewAuthHandler(database, cfg.JWTSecret)
 	docH := handlers.NewDocumentHandler(database, store, redisQueue)
-	jobH := handlers.NewJobHandler(database, store)
+	jobH := handlers.NewJobHandler(database, store, redisQueue)
 
 	// ── Rutas ────────────────────────────────────────────────────────────────
 	api := router.Group("/api")
@@ -78,6 +78,9 @@ func main() {
 			auth.POST("/login", authH.Login)
 		}
 
+		// Métricas globales (sin JWT)
+		api.GET("/metrics", jobH.GetMetrics)
+
 		// Rutas protegidas con JWT
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(cfg.JWTSecret))
@@ -90,6 +93,8 @@ func main() {
 			// Trabajos — consulta de estado y descarga
 			protected.GET("/jobs", jobH.ListJobs)
 			protected.GET("/jobs/:id", jobH.GetJob)
+			protected.DELETE("/jobs/:id", jobH.CancelJob)
+			protected.POST("/jobs/:id/retry", jobH.RetryJob)
 			protected.GET("/jobs/:id/download", jobH.DownloadBundle)
 		}
 	}

@@ -25,10 +25,12 @@ func ParsePlainText(content string) []Unit {
 			title = "Documento"
 		}
 		if body != "" || title != "Documento" {
+			slug, fallback := makeSlug(idx+1, title)
 			units = append(units, Unit{
-				Title:   title,
-				Content: body,
-				Slug:    makeSlug(idx+1, title),
+				Title:            title,
+				Content:          body,
+				Slug:             slug,
+				FallbackSlugUsed: fallback,
 			})
 			idx++
 		}
@@ -44,6 +46,29 @@ func ParsePlainText(content string) []Unit {
 		if trimmed == "" {
 			consecutiveBlanks++
 			currentLines = append(currentLines, line)
+			continue
+		}
+
+		// Heurística 0: Encabezado Markdown (uno o más # seguidos de espacio)
+		isHeader := false
+		if strings.HasPrefix(trimmed, "#") {
+			hashCount := 0
+			for _, ch := range trimmed {
+				if ch == '#' {
+					hashCount++
+				} else {
+					break
+				}
+			}
+			if hashCount > 0 && len(trimmed) > hashCount && trimmed[hashCount] == ' ' {
+				isHeader = true
+			}
+		}
+
+		if isHeader {
+			flush()
+			currentTitle = strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+			consecutiveBlanks = 0
 			continue
 		}
 
@@ -79,9 +104,10 @@ func ParsePlainText(content string) []Unit {
 
 	if len(units) == 0 {
 		units = []Unit{{
-			Title:   "Documento",
-			Content: strings.TrimSpace(content),
-			Slug:    "documento.md",
+			Title:            "Documento",
+			Content:          strings.TrimSpace(content),
+			Slug:             "concepto-01-documento.md",
+			FallbackSlugUsed: false,
 		}}
 	}
 

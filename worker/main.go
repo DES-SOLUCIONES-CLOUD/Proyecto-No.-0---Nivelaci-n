@@ -119,6 +119,23 @@ func processJob(ctx context.Context, db *sql.DB, store *storage.MinIO, consumer 
 		return
 	}
 
+	// VERIFICAR CANCELACIÓN
+	canceled, err := isCanceled(db, msg.JobID)
+	if err == nil && canceled {
+		log.Printf("[Worker] Job %s fue cancelado por el usuario, abortando procesamiento", msg.JobID)
+		_ = consumer.Acknowledge(ctx, msg.MsgID)
+		return
+	}
+
+	// Verificar reintentos máximos (Política de reintentos)
+	const maxRetries = 3
+	if consumer.GetDeliveryCount(ctx, msg.MsgID) > maxRetries {
+		log.Printf("[Worker] Job %s excedió %d reintentos, marcando como fallido", msg.JobID, maxRetries)
+		_ = updateStatus(db, msg.JobID, "failed", "excedidos reintentos máximos permitidos")
+		_ = consumer.Acknowledge(ctx, msg.MsgID)
+		return
+	}
+
 	// Marcar como "processing"
 	if err := updateStatus(db, msg.JobID, "processing", ""); err != nil {
 		log.Printf("[Worker] Error actualizando estado a processing: %v", err)
@@ -154,7 +171,11 @@ func processJob(ctx context.Context, db *sql.DB, store *storage.MinIO, consumer 
 		return
 	}
 
-	// Subir bundle a MinIO
+	if validation.Status == bundle.StatusValidWarning {
+		log.Printf("[Worker] Bundle válido con advertencias para job %s: %s", msg.JobID, strings.Join(validation.Warnings, "; "))
+	}
+
+	// Subir el bundle final a MinIO
 	bundlePath := fmt.Sprintf("%s/%s/bundle.zip", msg.UserID, msg.JobID)
 	if err := store.UploadBundle(jobCtx, bundlePath, bundleResult.ZipData); err != nil {
 		log.Printf("[Worker] Error subiendo bundle para job %s: %v", msg.JobID, err)
@@ -198,6 +219,14 @@ func convertDocument(ctx context.Context, store *storage.MinIO, msg queue.JobMes
 		units = converter.ParseHTML(content)
 	case "plaintext":
 		units = converter.ParsePlainText(content)
+	case "pdf":
+		pdfUnits, pdfErr := converter.ParsePDF(data)
+		if pdfErr != nil {
+			return nil, fmt.Errorf("error procesando PDF: %w", pdfErr)
+		}
+		units = pdfUnits
+	case "docx":
+		units = converter.ParseDOCX(data)
 	default:
 		// Fallback: tratar como texto plano
 		units = converter.ParsePlainText(content)
@@ -271,4 +300,13 @@ func updateBundle(db *sql.DB, jobID, bundlePath string, size int64, conceptCount
 		jobID, bundlePath, size, conceptCount,
 	)
 	return err
+}
+
+func isCanceled(db *sql.DB, jobID string) (bool, error) {
+	var status string
+	err := db.QueryRow(`SELECT status FROM jobs WHERE id = $1`, jobID).Scan(&status)
+	if err != nil {
+		return false, err
+	}
+	return status == "canceled", nil
 }

@@ -34,6 +34,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Verificar contraseña
+	if len(req.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "la contraseña debe tener al menos 8 caracteres"})
+		return
+	}
+
 	// Verificar username único
 	existing, err := h.db.GetUserByUsername(req.Username)
 	if err != nil {

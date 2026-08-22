@@ -20,11 +20,13 @@ const (
 	StatusProcessing JobStatus = "processing"
 	StatusCompleted  JobStatus = "completed"
 	StatusFailed     JobStatus = "failed"
+	StatusCanceled   JobStatus = "canceled"
 )
 
 // Job representa un trabajo de conversión documental.
 type Job struct {
 	ID               string     `json:"id" db:"id"`
+	ParentJobID      *string    `json:"parent_job_id,omitempty" db:"parent_job_id"`
 	UserID           string     `json:"user_id" db:"user_id"`
 	Filename         string     `json:"filename" db:"filename"`
 	OriginalFilename string     `json:"original_filename" db:"original_filename"`

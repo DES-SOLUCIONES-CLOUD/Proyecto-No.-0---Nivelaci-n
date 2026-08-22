@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     original_filename VARCHAR(255) NOT NULL,
     format VARCHAR(20) NOT NULL DEFAULT 'unknown',
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    -- pending | processing | completed | failed
+    parent_job_id UUID REFERENCES jobs(id),
+    -- pending | processing | completed | failed | canceled
     error_message TEXT,
     original_path TEXT,
     -- ruta en MinIO del documento original

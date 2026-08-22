@@ -129,7 +129,7 @@ func (c *RedisConsumer) claimPending(ctx context.Context, ch chan<- JobMessage) 
 		Stream: StreamName,
 		Group:  ConsumerGroup,
 		Start:  "-",
-		Stop:   "+",
+		End:    "+",
 		Count:  100,
 	}).Result()
 	if err != nil {
@@ -162,6 +162,21 @@ func (c *RedisConsumer) claimPending(ctx context.Context, ch chan<- JobMessage) 
 // Acknowledge confirma que un mensaje fue procesado exitosamente.
 func (c *RedisConsumer) Acknowledge(ctx context.Context, msgID string) error {
 	return c.client.XAck(ctx, StreamName, ConsumerGroup, msgID).Err()
+}
+
+// GetDeliveryCount obtiene cuántas veces se intentó procesar el mensaje.
+func (c *RedisConsumer) GetDeliveryCount(ctx context.Context, msgID string) int {
+	pending, err := c.client.XPendingExt(ctx, &redis.XPendingExtArgs{
+		Stream: StreamName,
+		Group:  ConsumerGroup,
+		Start:  msgID,
+		End:    msgID,
+		Count:  1,
+	}).Result()
+	if err != nil || len(pending) == 0 {
+		return 1
+	}
+	return int(pending[0].RetryCount)
 }
 
 func (c *RedisConsumer) acknowledge(ctx context.Context, msgID string) {

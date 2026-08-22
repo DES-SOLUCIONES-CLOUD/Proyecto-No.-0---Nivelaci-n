@@ -89,10 +89,18 @@ document.querySelectorAll('.auth-tab').forEach(tab => {
 
 // ─── Auth: Registro ──────────────────────────────────────────────────────────
 
-document.getElementById('register-form').addEventListener('submit', async (e) => {
+document.getElementById('form-register').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('btn-register');
   const errEl = document.getElementById('register-error');
+
+  const password = document.getElementById('reg-password').value;
+
+  if (password.length < 8) {
+    alert("¡Atención! La contraseña debe tener al menos 8 caracteres.");
+    toast('error', 'Contraseña muy corta', 'Debe tener al menos 8 caracteres');
+    return;
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Registrando...';
@@ -102,7 +110,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     const data = await apiRequest('POST', '/auth/register', {
       username: document.getElementById('reg-username').value.trim(),
       email:    document.getElementById('reg-email').value.trim(),
-      password: document.getElementById('reg-password').value,
+      password: password,
     });
 
     authToken = data.token;
@@ -123,10 +131,12 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
 // ─── Auth: Login ─────────────────────────────────────────────────────────────
 
-document.getElementById('login-form').addEventListener('submit', async (e) => {
+document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('btn-login');
   const errEl = document.getElementById('login-error');
+
+  const password = document.getElementById('login-password').value;
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Ingresando...';
@@ -135,7 +145,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   try {
     const data = await apiRequest('POST', '/auth/login', {
       email:    document.getElementById('login-email').value.trim(),
-      password: document.getElementById('login-password').value,
+      password: password,
     });
 
     authToken = data.token;
@@ -197,7 +207,7 @@ fileInput.addEventListener('change', (e) => {
 // ─── Upload: Manejo principal ─────────────────────────────────────────────────
 
 async function handleFileUpload(file) {
-  const validExts = ['.md', '.markdown', '.html', '.htm', '.txt'];
+  const validExts = ['.md', '.markdown', '.html', '.htm', '.txt', '.pdf', '.docx'];
   const ext = '.' + file.name.split('.').pop().toLowerCase();
 
   if (!validExts.includes(ext)) {
@@ -258,23 +268,35 @@ async function loadJobs() {
   try {
     const data = await apiRequest('GET', '/jobs');
     renderJobs(data.jobs || []);
-    updateStats(data.jobs || []);
+    loadMetrics();
   } catch (err) {
     console.error('Error cargando jobs:', err);
   }
 }
 
-function updateStats(jobs) {
-  const total     = jobs.length;
-  const completed = jobs.filter(j => j.status === 'completed').length;
-  const pending   = jobs.filter(j => j.status === 'pending' || j.status === 'processing').length;
-  const failed    = jobs.filter(j => j.status === 'failed').length;
-
-  document.getElementById('stat-total').textContent     = total;
-  document.getElementById('stat-completed').textContent = completed;
-  document.getElementById('stat-pending').textContent   = pending;
-  document.getElementById('stat-failed').textContent    = failed;
+async function loadMetrics() {
+  try {
+    const metrics = await apiRequest('GET', '/metrics');
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let failed = 0;
+    for (const [status, count] of Object.entries(metrics)) {
+      total += count;
+      if (status === 'completed') completed += count;
+      if (status === 'pending' || status === 'processing') pending += count;
+      if (status === 'failed' || status === 'canceled') failed += count;
+    }
+    document.getElementById('stat-total').textContent     = total;
+    document.getElementById('stat-completed').textContent = completed;
+    document.getElementById('stat-pending').textContent   = pending;
+    document.getElementById('stat-failed').textContent    = failed;
+  } catch (err) {
+    console.error('Error cargando métricas:', err);
+  }
 }
+
+
 
 function renderJobs(jobs) {
   const container = document.getElementById('jobs-list');
@@ -299,6 +321,7 @@ function jobCardHTML(job) {
     processing: '⚙️',
     completed:  '✅',
     failed:     '❌',
+    canceled:   '🚫',
   };
 
   const formatLabels = {
@@ -320,6 +343,14 @@ function jobCardHTML(job) {
 
   const sizeText = job.bundle_size > 0
     ? `· ${formatSize(job.bundle_size)}` : '';
+
+  const cancelBtn = (job.status === 'pending' || job.status === 'processing')
+    ? `<button class="btn btn-secondary btn-icon" onclick="cancelJob('${job.id}')" title="Cancelar trabajo">🚫</button>`
+    : '';
+
+  const retryBtn = (job.status === 'failed' || job.status === 'canceled')
+    ? `<button class="btn btn-primary btn-icon" onclick="retryJob('${job.id}')" title="Reintentar trabajo">🔄</button>`
+    : '';
 
   const downloadBtn = job.status === 'completed'
     ? `<button class="btn btn-success btn-icon" onclick="downloadBundle('${job.id}')" title="Descargar bundle ZIP">⬇️</button>`
@@ -345,6 +376,8 @@ function jobCardHTML(job) {
         ${processingDot}${job.status}
       </span>
       <div class="job-actions">
+        ${cancelBtn}
+        ${retryBtn}
         ${downloadBtn}
       </div>
     </div>
@@ -383,6 +416,29 @@ function startPolling(jobId) {
       console.error(`Polling error para job ${jobId}:`, err);
     }
   }, 3000); // Polling cada 3 segundos
+}
+
+// ─── Cancel y Retry ──────────────────────────────────────────────────────────
+
+async function cancelJob(jobId) {
+  try {
+    await apiRequest('DELETE', `/jobs/${jobId}`);
+    toast('info', 'Trabajo cancelado');
+    loadJobs();
+  } catch (err) {
+    toast('error', 'Error al cancelar', err.message);
+  }
+}
+
+async function retryJob(jobId) {
+  try {
+    const data = await apiRequest('POST', `/jobs/${jobId}/retry`);
+    toast('success', 'Trabajo reintentado', data.message);
+    startPolling(data.job_id);
+    loadJobs();
+  } catch (err) {
+    toast('error', 'Error al reintentar', err.message);
+  }
 }
 
 // ─── Download Bundle ──────────────────────────────────────────────────────────

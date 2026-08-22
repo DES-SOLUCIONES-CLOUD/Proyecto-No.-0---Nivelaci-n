@@ -81,13 +81,12 @@ func ParseHTML(content string) []Unit {
 	var units []Unit
 	for i, seg := range segments {
 		title := seg.title
-		if title == "" {
-			title = "Documento"
-		}
+		slug, fallback := makeSlug(i+1, title)
 		units = append(units, Unit{
-			Title:   title,
-			Content: strings.TrimSpace(strings.Join(seg.lines, "\n")),
-			Slug:    makeSlug(i+1, title),
+			Title:            title,
+			Content:          strings.TrimSpace(strings.Join(seg.lines, "\n")),
+			Slug:             slug,
+			FallbackSlugUsed: fallback,
 		})
 	}
 

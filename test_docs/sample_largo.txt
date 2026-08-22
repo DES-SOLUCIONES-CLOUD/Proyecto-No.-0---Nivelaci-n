@@ -1,0 +1,49 @@
+## Introducción a la computación en la nube
+
+La computación en la nube transformó la manera en que las organizaciones diseñan, despliegan y escalan sus sistemas de información. En lugar de adquirir y mantener infraestructura física propia, las empresas pueden contratar recursos de cómputo, almacenamiento y red bajo un modelo de pago por uso, disponible casi de inmediato y ajustable según la demanda real del negocio.
+
+Este cambio de paradigma no solo afecta la infraestructura técnica: modifica también los roles del equipo de tecnología, la forma en que se presupuestan los proyectos y la velocidad con la que una idea puede convertirse en un producto operativo. Entender sus fundamentos es indispensable antes de diseñar cualquier arquitectura moderna.
+
+## Modelos de servicio: IaaS, PaaS y SaaS
+
+La infraestructura como servicio (IaaS) ofrece los componentes más básicos: máquinas virtuales, redes virtuales y almacenamiento en bloque. El cliente sigue siendo responsable del sistema operativo, el middleware y las aplicaciones que corren encima, pero se libera de la compra y el mantenimiento del hardware físico.
+
+La plataforma como servicio (PaaS) añade una capa adicional de abstracción. El proveedor gestiona el sistema operativo, el entorno de ejecución y, en muchos casos, el escalamiento automático, de modo que los equipos de desarrollo pueden concentrarse exclusivamente en escribir y desplegar código de aplicación.
+
+El software como servicio (SaaS) representa el nivel más alto de abstracción: el usuario final consume una aplicación completa a través de un navegador o una interfaz de programación, sin preocuparse jamás por la infraestructura, el sistema operativo ni el código subyacente. Ejemplos cotidianos incluyen el correo electrónico corporativo, las herramientas de gestión de proyectos y las suites ofimáticas en línea.
+
+## Computación sin servidor (Serverless)
+
+El modelo serverless lleva la abstracción un paso más allá que PaaS. El proveedor de la nube asigna dinámicamente los recursos de cómputo necesarios para ejecutar una función o un pequeño fragmento de lógica, cobra únicamente por el tiempo efectivo de ejecución y libera esos recursos apenas la tarea concluye.
+
+Esta arquitectura resulta especialmente adecuada para cargas de trabajo intermitentes o impredecibles, como el procesamiento de eventos, la validación de archivos subidos por usuarios o la ejecución de tareas programadas de corta duración. Sin embargo, introduce también nuevos retos: los tiempos de arranque en frío, los límites de duración por invocación y la dificultad de depurar sistemas altamente distribuidos.
+
+## Contenedores y orquestación
+
+Los contenedores empaquetan una aplicación junto con todas sus dependencias en una unidad portátil y reproducible, que se ejecuta de manera consistente sin importar en qué máquina o proveedor de nube se despliegue. A diferencia de las máquinas virtuales, comparten el núcleo del sistema operativo anfitrión, lo que los hace considerablemente más livianos y rápidos de iniciar.
+
+Cuando el número de contenedores crece más allá de lo que un equipo puede administrar manualmente, entra en juego un orquestador. Su función es decidir en qué nodo se ejecuta cada contenedor, reiniciarlo automáticamente si falla, distribuir el tráfico entrante entre las réplicas disponibles y facilitar actualizaciones sin interrupción del servicio.
+
+## Bases de datos gestionadas
+
+Una base de datos gestionada traslada al proveedor de la nube las tareas operativas más repetitivas y propensas a error: la instalación, los parches de seguridad, las copias de respaldo periódicas, la replicación entre zonas de disponibilidad y la recuperación ante desastres.
+
+Existen variantes relacionales, orientadas a documentos, de clave-valor, de grafos y de series de tiempo, cada una optimizada para un patrón de acceso distinto. Elegir la variante correcta depende menos de la moda tecnológica y más de las características reales de las consultas que la aplicación necesita resolver con baja latencia.
+
+## Seguridad
+
+La seguridad en entornos de nube se apoya sobre un principio compartido: el proveedor protege la infraestructura física y los servicios subyacentes, mientras que el cliente es responsable de configurar correctamente el acceso a sus propios recursos, cifrar la información sensible y aplicar el principio de mínimo privilegio en cada credencial emitida.
+
+Los errores de configuración, no las vulnerabilidades del proveedor, constituyen la causa más frecuente de incidentes reportados en entornos productivos: buckets de almacenamiento expuestos públicamente, credenciales embebidas en el código fuente o reglas de red demasiado permisivas.
+
+## Observabilidad
+
+Una plataforma distribuida en la nube exige visibilidad constante sobre su comportamiento. La observabilidad se construye típicamente sobre tres pilares complementarios: las métricas, que resumen el estado del sistema en series numéricas a lo largo del tiempo; los registros (logs), que documentan eventos discretos con contexto detallado; y las trazas distribuidas, que permiten reconstruir el recorrido completo de una solicitud a través de varios servicios.
+
+Sin estos tres pilares trabajando en conjunto, diagnosticar un incidente en producción se convierte en un ejercicio de conjeturas, especialmente cuando la falla se origina en la interacción entre componentes y no en uno solo de ellos de forma aislada.
+
+## Seguridad
+
+Además de la configuración de acceso, conviene revisar periódicamente las dependencias de terceros utilizadas por cada servicio: bibliotecas desactualizadas o con vulnerabilidades conocidas siguen siendo, año tras año, una de las puertas de entrada más comunes para un atacante, incluso en arquitecturas que por lo demás están correctamente aisladas y cifradas.
+
+Automatizar el escaneo de dependencias como parte del proceso de integración continua reduce significativamente el tiempo que transcurre entre la publicación de una vulnerabilidad y su corrección efectiva en el sistema desplegado.

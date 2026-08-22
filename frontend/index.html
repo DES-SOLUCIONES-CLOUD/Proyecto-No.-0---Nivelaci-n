@@ -36,6 +36,10 @@
           <p>Conversión documental a bundles de conocimiento</p>
         </div>
 
+        <div style="background-color: #3b82f633; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9em; color: #93c5fd; text-align: left;">
+          <strong>Nota de seguridad:</strong> Por tu protección, todas las contraseñas deben contener un mínimo de <strong>8 caracteres</strong>.
+        </div>
+
         <!-- Tabs -->
         <div class="auth-tabs">
           <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
@@ -43,7 +47,7 @@
         </div>
 
         <!-- Form: Login -->
-        <form class="auth-form active" id="form-login" style="display:block">
+        <form class="auth-form active" id="form-login">
           <div id="login-error" class="form-error"></div>
 
           <div class="form-group">
@@ -64,7 +68,9 @@
         </form>
 
         <!-- Form: Registro -->
-        <form class="auth-form" id="form-register" style="display:none">
+        <form class="auth-form" id="form-register">
+
+
           <div id="register-error" class="form-error"></div>
 
           <div class="form-group">
@@ -83,7 +89,7 @@
           <div class="form-group">
             <label class="form-label" for="reg-password">Contraseña</label>
             <input class="form-input" type="password" id="reg-password"
-                   placeholder="Mínimo 8 caracteres" required minlength="8"
+                   placeholder="Mínimo 8 caracteres" required
                    autocomplete="new-password" />
           </div>
 
@@ -138,8 +144,10 @@
           <span class="format-badge">.md</span>
           <span class="format-badge">.html</span>
           <span class="format-badge">.txt</span>
+          <span class="format-badge">.pdf</span>
+          <span class="format-badge">.docx</span>
         </div>
-        <input type="file" id="file-input" accept=".md,.markdown,.html,.htm,.txt" />
+        <input type="file" id="file-input" accept=".md,.markdown,.html,.htm,.txt,.pdf,.docx" />
       </div>
 
       <!-- Upload Progress -->

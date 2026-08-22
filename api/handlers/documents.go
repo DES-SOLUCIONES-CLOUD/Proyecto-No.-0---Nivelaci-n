@@ -55,9 +55,15 @@ func (h *DocumentHandler) Upload(c *gin.Context) {
 
 	// Detectar formato del archivo
 	format := detectFormat(header.Filename)
-	if format == "unknown" {
+	switch format {
+	case "unknown":
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "formato no soportado. Usa: .md, .html, .htm, .txt",
+			"error": "formato no soportado. Usa: .md, .html, .htm, .txt, .pdf, .docx",
+		})
+		return
+	case "doc_legacy":
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "el formato .doc (Word 97-2003) no está soportado. Guarda el archivo como .docx e inténtalo de nuevo.",
 		})
 		return
 	}
@@ -134,6 +140,12 @@ func detectFormat(filename string) string {
 		return "html"
 	case ".txt":
 		return "plaintext"
+	case ".pdf":
+		return "pdf"
+	case ".docx":
+		return "docx"
+	case ".doc":
+		return "doc_legacy"
 	default:
 		return "unknown"
 	}
@@ -157,6 +169,10 @@ func contentTypeFor(format string) string {
 		return "text/markdown"
 	case "html":
 		return "text/html"
+	case "pdf":
+		return "application/pdf"
+	case "docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	default:
 		return "text/plain"
 	}

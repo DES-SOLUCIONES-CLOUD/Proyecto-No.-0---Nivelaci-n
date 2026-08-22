@@ -92,11 +92,11 @@ func (d *DB) GetUserByUsername(username string) (*models.User, error) {
 // CreateJob inserta un nuevo trabajo de conversión.
 func (d *DB) CreateJob(j *models.Job) error {
 	query := `
-		INSERT INTO jobs (id, user_id, filename, original_filename, format, status, original_path)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO jobs (id, parent_job_id, user_id, filename, original_filename, format, status, original_path)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING created_at, updated_at`
 	return d.conn.QueryRow(query,
-		j.ID, j.UserID, j.Filename, j.OriginalFilename, j.Format, j.Status, j.OriginalPath,
+		j.ID, j.ParentJobID, j.UserID, j.Filename, j.OriginalFilename, j.Format, j.Status, j.OriginalPath,
 	).Scan(&j.CreatedAt, &j.UpdatedAt)
 }
 
@@ -105,14 +105,16 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 	j := &models.Job{}
 	var errMsg sql.NullString
 	var completedAt sql.NullTime
+	var bundlePath sql.NullString
 	query := `
-		SELECT id, user_id, filename, original_filename, format, status,
+		SELECT id, parent_job_id, user_id, filename, original_filename, format, status,
 		       error_message, original_path, bundle_path, bundle_size, concept_count,
 		       created_at, updated_at, completed_at
 		FROM jobs WHERE id = $1 AND user_id = $2`
+	var parentJobID sql.NullString
 	err := d.conn.QueryRow(query, jobID, userID).Scan(
-		&j.ID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
-		&errMsg, &j.OriginalPath, &j.BundlePath, &j.BundleSize, &j.ConceptCount,
+		&j.ID, &parentJobID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
+		&errMsg, &j.OriginalPath, &bundlePath, &j.BundleSize, &j.ConceptCount,
 		&j.CreatedAt, &j.UpdatedAt, &completedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -124,6 +126,12 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 	if errMsg.Valid {
 		j.ErrorMessage = &errMsg.String
 	}
+	if bundlePath.Valid {
+		j.BundlePath = bundlePath.String
+	}
+	if parentJobID.Valid {
+		j.ParentJobID = &parentJobID.String
+	}
 	if completedAt.Valid {
 		j.CompletedAt = &completedAt.Time
 	}
@@ -133,7 +141,7 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 // ListJobs lista todos los trabajos de un usuario.
 func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 	query := `
-		SELECT id, user_id, filename, original_filename, format, status,
+		SELECT id, parent_job_id, user_id, filename, original_filename, format, status,
 		       error_message, bundle_size, concept_count, created_at, updated_at, completed_at
 		FROM jobs WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := d.conn.Query(query, userID)
@@ -147,8 +155,9 @@ func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 		j := &models.Job{}
 		var errMsg sql.NullString
 		var completedAt sql.NullTime
+		var parentJobID sql.NullString
 		err := rows.Scan(
-			&j.ID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
+			&j.ID, &parentJobID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
 			&errMsg, &j.BundleSize, &j.ConceptCount, &j.CreatedAt, &j.UpdatedAt, &completedAt,
 		)
 		if err != nil {
@@ -156,6 +165,9 @@ func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 		}
 		if errMsg.Valid {
 			j.ErrorMessage = &errMsg.String
+		}
+		if parentJobID.Valid {
+			j.ParentJobID = &parentJobID.String
 		}
 		if completedAt.Valid {
 			j.CompletedAt = &completedAt.Time
@@ -183,6 +195,27 @@ func (d *DB) UpdateJobBundle(jobID, bundlePath string, bundleSize int64, concept
 	query := `UPDATE jobs SET bundle_path = $2, bundle_size = $3, concept_count = $4 WHERE id = $1`
 	_, err := d.conn.Exec(query, jobID, bundlePath, bundleSize, conceptCount)
 	return err
+}
+
+// GetMetrics retorna el conteo total de jobs agrupados por estado
+func (d *DB) GetMetrics() (map[string]int, error) {
+	query := `SELECT status, COUNT(*) FROM jobs GROUP BY status`
+	rows, err := d.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	metrics := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, err
+		}
+		metrics[status] = count
+	}
+	return metrics, nil
 }
 
 // ─── Idempotencia ────────────────────────────────────────────────────────────
