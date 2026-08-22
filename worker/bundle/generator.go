@@ -26,6 +26,7 @@ type GenerationResult struct {
 	ZipData      []byte
 	ConceptCount int
 	Log          []string
+	Units        []converter.Unit
 }
 
 // Generate toma las unidades de un documento y genera el bundle OKF completo.
@@ -49,6 +50,9 @@ func Generate(jobID, filename, format string, units []converter.Unit) (*Generati
 			msg += " [Slug de respaldo usado]"
 		}
 		log(msg)
+		for _, note := range u.Notes {
+			log(fmt.Sprintf("    %s", note))
+		}
 	}
 
 	// Generar index.md
@@ -75,7 +79,8 @@ func Generate(jobID, filename, format string, units []converter.Unit) (*Generati
 	}
 
 	// Agregar log.md (al final, con todos los registros)
-	logMDFinal := generateLogMD(logEntries, filename, jobID, now)
+	warnings := detectWarnings(units)
+	logMDFinal := generateLogMD(logEntries, warnings, filename, jobID, now)
 	if err := addToZip(w, "log.md", []byte(logMDFinal)); err != nil {
 		return nil, fmt.Errorf("error creando log.md: %w", err)
 	}
@@ -88,6 +93,7 @@ func Generate(jobID, filename, format string, units []converter.Unit) (*Generati
 		ZipData:      buf.Bytes(),
 		ConceptCount: len(units),
 		Log:          logEntries,
+		Units:        units,
 	}, nil
 }
 
@@ -126,7 +132,14 @@ func generateIndex(filename, jobID string, units []converter.Unit, t time.Time, 
 }
 
 // generateLogMD genera el archivo log.md con la trazabilidad completa.
-func generateLogMD(entries []string, filename, jobID string, t time.Time) string {
+//
+// La estructura mínima y la resolución de enlaces del índice están
+// garantizadas por construcción (Generate solo enlaza los slugs que él mismo
+// crea), así que esas dos líneas siempre son ✅. El veredicto final, en
+// cambio, refleja las advertencias detectadas en warnings —las mismas que
+// bundle.Validate() evaluará después sobre el ZIP publicado— en vez de
+// asumir siempre éxito.
+func generateLogMD(entries []string, warnings []string, filename, jobID string, t time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Log de Conversión — OKF Bundle\n\n")
@@ -145,7 +158,14 @@ func generateLogMD(entries []string, filename, jobID string, t time.Time) string
 	sb.WriteString("## Validaciones\n\n")
 	sb.WriteString("- ✅ Estructura mínima verificada (index.md, log.md, al menos 1 concepto)\n")
 	sb.WriteString("- ✅ Todos los enlaces del índice resueltos\n")
-	sb.WriteString("- ✅ Bundle publicado exitosamente\n")
+	if len(warnings) == 0 {
+		sb.WriteString("- ✅ Bundle válido, sin advertencias\n")
+	} else {
+		sb.WriteString(fmt.Sprintf("- ⚠️ Bundle válido con %d advertencia(s):\n", len(warnings)))
+		for _, w := range warnings {
+			sb.WriteString(fmt.Sprintf("  - ⚠️ %s\n", w))
+		}
+	}
 
 	return sb.String()
 }

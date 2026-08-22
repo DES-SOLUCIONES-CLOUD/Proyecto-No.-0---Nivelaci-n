@@ -4,9 +4,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode"
+
+	"okf-worker/converter"
 )
 
 type ValidationStatus string
@@ -73,7 +74,11 @@ func isSuspiciousText(text string) bool {
 // - Debe contener log.md
 // - Debe contener al menos un archivo de concepto (.md que no sea index.md ni log.md)
 // - Todos los enlaces en index.md deben resolverse a archivos existentes en el ZIP
-func Validate(zipData []byte) (*ValidationResult, error) {
+//
+// units son las unidades a partir de las cuales se generó el bundle; se usan
+// para detectar las condiciones que degradan el resultado a "válido con
+// advertencias" (ver detectWarnings).
+func Validate(zipData []byte, units []converter.Unit) (*ValidationResult, error) {
 	result := &ValidationResult{Valid: true}
 
 	// Leer el ZIP en memoria
@@ -113,23 +118,6 @@ func Validate(zipData []byte) (*ValidationResult, error) {
 		// Contar conceptos (archivos .md que no son index.md ni log.md)
 		if strings.HasSuffix(name, ".md") && name != "index.md" && name != "log.md" {
 			conceptCount++
-			
-			// Validar si usa slug de respaldo
-			fallbackRegex := regexp.MustCompile(`^concepto-\d{2}\.md$`)
-			if fallbackRegex.MatchString(name) {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("Se usó slug de respaldo en %s", name))
-			}
-			
-			// Validar texto sospechoso
-			rc, err := f.Open()
-			if err == nil {
-				var buf bytes.Buffer
-				buf.ReadFrom(rc)
-				rc.Close()
-				if isSuspiciousText(buf.String()) {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("Texto sospechoso detectado en %s", name))
-				}
-			}
 		}
 	}
 
@@ -161,9 +149,7 @@ func Validate(zipData []byte) (*ValidationResult, error) {
 	}
 
 	// Advertencias (no impiden publicación)
-	if conceptCount == 1 {
-		result.Warnings = append(result.Warnings, "el bundle contiene un solo concepto (documento breve)")
-	}
+	result.Warnings = append(result.Warnings, detectWarnings(units)...)
 
 	if !result.Valid {
 		result.Status = StatusInvalid
@@ -174,6 +160,44 @@ func Validate(zipData []byte) (*ValidationResult, error) {
 	}
 
 	return result, nil
+}
+
+// detectWarnings evalúa, sobre las unidades ya generadas, las condiciones que
+// degradan el bundle a "válido con advertencias": slugs de respaldo, texto
+// sospechoso de estar corrupto, bloques de código sin cerrar, títulos
+// duplicados y documentos de un único concepto. La usan tanto Validate()
+// —para decidir el estado del bundle publicado— como bundle.Generate() —para
+// que log.md registre el mismo veredicto en vez de asumir siempre éxito.
+func detectWarnings(units []converter.Unit) []string {
+	var warnings []string
+	titleCounts := make(map[string]int)
+	for _, u := range units {
+		titleCounts[strings.TrimSpace(u.Title)]++
+	}
+
+	seenDuplicateTitle := make(map[string]bool)
+	for _, u := range units {
+		if u.FallbackSlugUsed {
+			warnings = append(warnings, fmt.Sprintf("Se usó slug de respaldo en %s", u.Slug))
+		}
+		if isSuspiciousText(u.Content) {
+			warnings = append(warnings, fmt.Sprintf("Texto sospechoso detectado en %s", u.Slug))
+		}
+		for _, note := range u.Notes {
+			if strings.Contains(note, "sin cerrar") {
+				warnings = append(warnings, fmt.Sprintf("%s (unidad: %s)", note, u.Slug))
+			}
+		}
+		title := strings.TrimSpace(u.Title)
+		if titleCounts[title] > 1 && !seenDuplicateTitle[title] {
+			seenDuplicateTitle[title] = true
+			warnings = append(warnings, fmt.Sprintf("Título duplicado: '%s' aparece en %d conceptos", title, titleCounts[title]))
+		}
+	}
+	if len(units) == 1 {
+		warnings = append(warnings, "el bundle contiene un solo concepto (documento breve)")
+	}
+	return warnings
 }
 
 // checkLinks extrae y verifica los enlaces Markdown de un archivo.

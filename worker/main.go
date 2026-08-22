@@ -154,7 +154,7 @@ func processJob(ctx context.Context, db *sql.DB, store *storage.MinIO, consumer 
 	}
 
 	// Validar bundle antes de publicar
-	validation, err := bundle.Validate(bundleResult.ZipData)
+	validation, err := bundle.Validate(bundleResult.ZipData, bundleResult.Units)
 	if err != nil {
 		log.Printf("[Worker] Error validando bundle para job %s: %v", msg.JobID, err)
 		_ = updateStatus(db, msg.JobID, "failed", "error validando bundle: "+err.Error())
