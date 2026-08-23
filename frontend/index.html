@@ -3,190 +3,174 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OKF Platform — Conversión Documental a Bundles de Conocimiento</title>
+  <title>OKF — Bundles de conocimiento</title>
   <meta name="description" content="Plataforma multiusuario para convertir documentos a bundles OKF (Open Knowledge Format). Backend en Go, procesamiento asíncrono con workers." />
-  <meta name="theme-color" content="#0a0e1a" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" />
-  <link rel="stylesheet" href="css/style.css" />
+  <meta name="theme-color" content="#f5f1e6" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='3' fill='%23e4dccb'/><path d='M6 7h12M6 12h12M6 17h7' stroke='%23241f19' stroke-width='2' stroke-linecap='round'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <!-- Bootstrap Icons: solo la fuente de iconos vía CDN, no el framework CSS de
+       Bootstrap — el sistema de diseño (color, tipografía, layout) sigue siendo el propio. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260823-2" />
 </head>
 <body>
-<div class="app">
 
-  <!-- ══════ NAVBAR ══════════════════════════════════════════════════════════ -->
-  <nav class="navbar" id="navbar" style="display:none">
-    <a href="#" class="navbar-brand">
-      <div class="logo-icon">📦</div>
-      OKF Platform
-    </a>
-    <div class="navbar-user">
-      Hola, <span class="navbar-username" id="navbar-username"></span>
-      <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
-    </div>
-  </nav>
+<div class="shell">
 
-  <!-- ══════ PÁGINA: AUTENTICACIÓN ══════════════════════════════════════════ -->
-  <div class="page" id="page-auth">
-    <div class="auth-container">
-      <div class="auth-card">
+  <!-- ══════════════════════════════════════ VISTA: AUTENTICACIÓN ══════ -->
+  <div class="view view-auth" id="view-auth">
+    <div class="auth-layout">
 
-        <!-- Logo -->
-        <div class="auth-logo">
-          <div class="auth-logo-icon">📦</div>
-          <h1>OKF Platform</h1>
-          <p>Conversión documental a bundles de conocimiento</p>
+      <aside class="auth-intro">
+        <p class="brandmark">OKF · Bundles</p>
+        <h1 class="auth-headline">De documento<br />a conocimiento<br />estructurado.</h1>
+        <p class="auth-copy">Carga cualquier documento. Un worker independiente lo convierte en segundo plano a un bundle Markdown validado, con índice y trazabilidad completa — nunca bloquea tu conexión.</p>
+
+        <ol class="pipeline">
+          <li><span class="pipeline-n">01</span><span class="pipeline-t">Cargas</span><span class="pipeline-d">Sube el documento; recibes un ID de trabajo al instante.</span></li>
+          <li><span class="pipeline-n">02</span><span class="pipeline-t">Procesa</span><span class="pipeline-d">La conversión corre en un worker aparte, de forma asíncrona.</span></li>
+          <li><span class="pipeline-n">03</span><span class="pipeline-t">Descargas</span><span class="pipeline-d">Bundle validado — index, log y conceptos, listo para usar.</span></li>
+        </ol>
+
+        <p class="formats-line">Formatos admitidos&ensp;<span class="mono">.md&ensp;.html&ensp;.txt&ensp;.pdf&ensp;.docx</span></p>
+      </aside>
+
+      <div class="auth-panel">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="login" role="tab" aria-selected="true" aria-controls="form-login">Iniciar sesión</button>
+          <button class="tab" data-tab="register" role="tab" aria-selected="false" aria-controls="form-register">Crear cuenta</button>
         </div>
 
-        <div style="background-color: #3b82f633; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px; font-size: 0.9em; color: #93c5fd; text-align: left;">
-          <strong>Nota de seguridad:</strong> Por tu protección, todas las contraseñas deben contener un mínimo de <strong>8 caracteres</strong>.
-        </div>
+        <form class="auth-form active" id="form-login" novalidate>
+          <p class="form-alert" id="login-error" role="alert" hidden></p>
 
-        <!-- Tabs -->
-        <div class="auth-tabs">
-          <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
-          <button class="auth-tab" data-tab="register">Crear cuenta</button>
-        </div>
-
-        <!-- Form: Login -->
-        <form class="auth-form active" id="form-login">
-          <div id="login-error" class="form-error"></div>
-
-          <div class="form-group">
-            <label class="form-label" for="login-email">Email</label>
-            <input class="form-input" type="email" id="login-email"
-                   placeholder="tu@email.com" required autocomplete="email" />
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input class="field-input" type="email" id="login-email" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="login-password">Contraseña</label>
+            <input class="field-input mono" type="password" id="login-password" required autocomplete="current-password" />
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="login-password">Contraseña</label>
-            <input class="form-input" type="password" id="login-password"
-                   placeholder="••••••••" required autocomplete="current-password" />
-          </div>
-
-          <button class="btn btn-primary btn-full" type="submit" id="btn-login">
-            Iniciar sesión
-          </button>
+          <button class="btn btn-primary btn-block" type="submit" id="btn-login">Iniciar sesión</button>
         </form>
 
-        <!-- Form: Registro -->
-        <form class="auth-form" id="form-register">
+        <form class="auth-form" id="form-register" novalidate>
+          <p class="form-alert" id="register-error" role="alert" hidden></p>
 
-
-          <div id="register-error" class="form-error"></div>
-
-          <div class="form-group">
-            <label class="form-label" for="reg-username">Nombre de usuario</label>
-            <input class="form-input" type="text" id="reg-username"
-                   placeholder="juandavid" required minlength="3" maxlength="50"
-                   autocomplete="username" />
+          <div class="field">
+            <label for="reg-username">Nombre de usuario</label>
+            <input class="field-input" type="text" id="reg-username" required minlength="3" maxlength="50" autocomplete="username" />
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input class="field-input" type="email" id="reg-email" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="reg-password">Contraseña</label>
+            <input class="field-input mono" type="password" id="reg-password" required autocomplete="new-password" aria-describedby="reg-password-hint" />
+            <p class="field-hint" id="reg-password-hint">Mínimo 8 caracteres.</p>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="reg-email">Email</label>
-            <input class="form-input" type="email" id="reg-email"
-                   placeholder="tu@email.com" required autocomplete="email" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="reg-password">Contraseña</label>
-            <input class="form-input" type="password" id="reg-password"
-                   placeholder="Mínimo 8 caracteres" required
-                   autocomplete="new-password" />
-          </div>
-
-          <button class="btn btn-primary btn-full" type="submit" id="btn-register">
-            Crear cuenta
-          </button>
+          <button class="btn btn-primary btn-block" type="submit" id="btn-register">Crear cuenta</button>
         </form>
-
-      </div>
-    </div>
-  </div><!-- /page-auth -->
-
-  <!-- ══════ PÁGINA: DASHBOARD ═══════════════════════════════════════════════ -->
-  <div class="page" id="page-dashboard">
-    <div class="dashboard">
-
-      <!-- Header -->
-      <div class="dashboard-header">
-        <div>
-          <h2>📦 Mis Bundles OKF</h2>
-          <p>Convierte documentos en bundles de conocimiento estructurados</p>
-        </div>
-        <button class="btn btn-secondary" id="btn-refresh">🔄 Actualizar</button>
-      </div>
-
-      <!-- Stats -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Total trabajos</div>
-          <div class="stat-value" id="stat-total">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Completados</div>
-          <div class="stat-value success" id="stat-completed">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">En proceso</div>
-          <div class="stat-value pending" id="stat-pending">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Fallidos</div>
-          <div class="stat-value error" id="stat-failed">0</div>
-        </div>
-      </div>
-
-      <!-- Upload Zone -->
-      <div class="upload-zone" id="upload-zone">
-        <span class="upload-icon">📤</span>
-        <h3>Arrastra tu documento aquí o haz clic para seleccionar</h3>
-        <p>El documento se procesará de forma asíncrona. Recibirás un ID de trabajo de inmediato.</p>
-        <div class="upload-formats">
-          <span class="format-badge">.md</span>
-          <span class="format-badge">.html</span>
-          <span class="format-badge">.txt</span>
-          <span class="format-badge">.pdf</span>
-          <span class="format-badge">.docx</span>
-        </div>
-        <input type="file" id="file-input" accept=".md,.markdown,.html,.htm,.txt,.pdf,.docx" />
-      </div>
-
-      <!-- Upload Progress -->
-      <div class="upload-progress" id="upload-progress">
-        <div class="progress-header">
-          <span class="progress-label" id="progress-label">Subiendo...</span>
-          <span class="progress-job-id" id="progress-job-id"></span>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-      </div>
-
-      <!-- Jobs List -->
-      <div class="section-header">
-        <span class="section-title">Trabajos de conversión</span>
-      </div>
-      <div class="jobs-list" id="jobs-list">
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <h3>No hay trabajos aún</h3>
-          <p>Sube tu primer documento para comenzar</p>
-        </div>
       </div>
 
     </div>
-  </div><!-- /page-dashboard -->
+  </div>
 
-</div><!-- /app -->
+  <!-- ══════════════════════════════════════ VISTA: APLICACIÓN ═════════ -->
+  <div class="view view-app" id="view-app" hidden>
 
-<!-- Toast Container -->
-<div class="toast-container" id="toast-container"></div>
+    <header class="masthead">
+      <div class="masthead-brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="4" fill="currentColor"/><path d="M6 7h12M6 12h12M6 17h7" stroke="var(--ink-900)" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span class="masthead-title">OKF <span class="masthead-title-sub">Bundles</span></span>
+      </div>
+      <div class="masthead-user">
+        <span class="user-tag" id="navbar-username"></span>
+        <button class="btn btn-ghost" id="btn-logout" type="button">
+          <i class="bi bi-box-arrow-right icon" aria-hidden="true"></i>
+          Cerrar sesión
+        </button>
+      </div>
+    </header>
 
-<!-- Estilos inline para tabs alternadas -->
-<style>
-  .auth-form { display: none; }
-  .auth-form.active { display: block; }
-</style>
+    <main class="workspace">
 
-<script src="js/app.js"></script>
+      <!-- ── Columna primaria: carga + lista ─────────────────────────── -->
+      <section class="col-primary" aria-label="Carga y lista de trabajos">
+
+        <div class="uploader" id="upload-zone" tabindex="0" role="button" aria-label="Cargar documento: arrastra un archivo o presiona para elegirlo">
+          <i class="bi bi-upload uploader-icon" aria-hidden="true"></i>
+          <p class="uploader-title">Arrastra un documento aquí, o haz clic para elegirlo</p>
+          <p class="uploader-copy">Se procesa en segundo plano — puedes cerrar esta pestaña sin perder el trabajo.</p>
+          <p class="uploader-formats mono">md&ensp;·&ensp;html&ensp;·&ensp;txt&ensp;·&ensp;pdf&ensp;·&ensp;docx&ensp;·&ensp;máx 50&nbsp;MB</p>
+          <input type="file" id="file-input" hidden accept=".md,.markdown,.html,.htm,.txt,.pdf,.docx" />
+        </div>
+        <p class="uploader-error" id="upload-error" role="alert" hidden></p>
+
+        <div class="upload-ticket" id="upload-progress" hidden>
+          <div class="upload-ticket-row">
+            <span class="upload-ticket-label" id="progress-label">Subiendo…</span>
+            <span class="upload-ticket-id mono" id="progress-job-id"></span>
+          </div>
+          <div class="upload-ticket-track"><div class="upload-ticket-bar" id="progress-bar"></div></div>
+        </div>
+
+        <div class="list-head">
+          <h2>Trabajos</h2>
+          <div class="list-stats mono" id="list-stats" aria-live="polite"></div>
+          <button class="btn btn-ghost btn-sm" id="btn-refresh" type="button">
+            <i class="bi bi-arrow-repeat icon" aria-hidden="true"></i>
+            Actualizar
+          </button>
+        </div>
+
+        <!-- estado: cargando -->
+        <div class="jobs-state" id="jobs-loading" hidden>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+        </div>
+
+        <!-- estado: error de red -->
+        <div class="jobs-state jobs-state-error" id="jobs-network-error" hidden>
+          <i class="bi bi-plug icon icon-lg" aria-hidden="true"></i>
+          <p class="jobs-state-title">No se pudo conectar con el servidor</p>
+          <p class="jobs-state-copy">Verifica tu conexión. Reintentamos automáticamente, o puedes forzarlo ahora.</p>
+          <button class="btn btn-secondary btn-sm" id="btn-retry-connection" type="button">Reintentar</button>
+        </div>
+
+        <!-- estado: vacío -->
+        <div class="jobs-state" id="jobs-empty" hidden>
+          <i class="bi bi-inbox icon icon-lg" aria-hidden="true"></i>
+          <p class="jobs-state-title">Todavía no hay trabajos</p>
+          <p class="jobs-state-copy">Sube tu primer documento arriba para generar un bundle.</p>
+        </div>
+
+        <ul class="job-list" id="jobs-list"></ul>
+      </section>
+
+      <!-- ── Columna de detalle ───────────────────────────────────────── -->
+      <aside class="col-detail" id="col-detail" aria-label="Detalle del trabajo seleccionado">
+        <div class="detail-empty" id="detail-empty">
+          <i class="bi bi-file-earmark-text icon icon-lg" aria-hidden="true"></i>
+          <p>Selecciona un trabajo de la lista para ver su detalle.</p>
+        </div>
+        <div class="detail-panel" id="detail-panel" hidden></div>
+      </aside>
+
+    </main>
+  </div>
+
+</div><!-- /shell -->
+
+<div class="toast-region" id="toast-container" aria-live="polite"></div>
+
+<script src="js/app.js?v=20260823-2"></script>
 </body>
 </html>

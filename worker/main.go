@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -185,7 +186,8 @@ func processJob(ctx context.Context, db *sql.DB, store *storage.MinIO, consumer 
 	}
 
 	// Actualizar metadatos del bundle en PostgreSQL
-	if err := updateBundle(db, msg.JobID, bundlePath, int64(len(bundleResult.ZipData)), bundleResult.ConceptCount); err != nil {
+	if err := updateBundle(db, msg.JobID, bundlePath, int64(len(bundleResult.ZipData)), bundleResult.ConceptCount,
+		string(validation.Status), validation.Warnings); err != nil {
 		log.Printf("[Worker] Error actualizando metadatos bundle: %v", err)
 	}
 
@@ -294,10 +296,18 @@ func updateStatus(db *sql.DB, jobID, status, errMsg string) error {
 	return err
 }
 
-func updateBundle(db *sql.DB, jobID, bundlePath string, size int64, conceptCount int) error {
-	_, err := db.Exec(
-		`UPDATE jobs SET bundle_path = $2, bundle_size = $3, concept_count = $4 WHERE id = $1`,
-		jobID, bundlePath, size, conceptCount,
+func updateBundle(db *sql.DB, jobID, bundlePath string, size int64, conceptCount int, validationStatus string, warnings []string) error {
+	if warnings == nil {
+		warnings = []string{}
+	}
+	warningsJSON, err := json.Marshal(warnings)
+	if err != nil {
+		return fmt.Errorf("error serializando advertencias: %w", err)
+	}
+	_, err = db.Exec(
+		`UPDATE jobs SET bundle_path = $2, bundle_size = $3, concept_count = $4,
+		 validation_status = $5, validation_warnings = $6 WHERE id = $1`,
+		jobID, bundlePath, size, conceptCount, validationStatus, warningsJSON,
 	)
 	return err
 }

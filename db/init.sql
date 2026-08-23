@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     -- ruta en MinIO del bundle ZIP
     bundle_size BIGINT DEFAULT 0,
     concept_count INT DEFAULT 0,
+    validation_status VARCHAR(30),
+    -- valid | valid_with_warnings | invalid (ver bundle.ValidationStatus)
+    validation_warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE

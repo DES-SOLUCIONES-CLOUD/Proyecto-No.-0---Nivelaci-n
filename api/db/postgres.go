@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -106,15 +107,19 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 	var errMsg sql.NullString
 	var completedAt sql.NullTime
 	var bundlePath sql.NullString
+	var validationStatus sql.NullString
+	var validationWarnings []byte
 	query := `
 		SELECT id, parent_job_id, user_id, filename, original_filename, format, status,
 		       error_message, original_path, bundle_path, bundle_size, concept_count,
+		       validation_status, validation_warnings,
 		       created_at, updated_at, completed_at
 		FROM jobs WHERE id = $1 AND user_id = $2`
 	var parentJobID sql.NullString
 	err := d.conn.QueryRow(query, jobID, userID).Scan(
 		&j.ID, &parentJobID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
 		&errMsg, &j.OriginalPath, &bundlePath, &j.BundleSize, &j.ConceptCount,
+		&validationStatus, &validationWarnings,
 		&j.CreatedAt, &j.UpdatedAt, &completedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -135,6 +140,12 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 	if completedAt.Valid {
 		j.CompletedAt = &completedAt.Time
 	}
+	if validationStatus.Valid {
+		j.ValidationStatus = validationStatus.String
+	}
+	if len(validationWarnings) > 0 {
+		_ = json.Unmarshal(validationWarnings, &j.ValidationWarnings)
+	}
 	return j, nil
 }
 
@@ -142,7 +153,9 @@ func (d *DB) GetJob(jobID, userID string) (*models.Job, error) {
 func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 	query := `
 		SELECT id, parent_job_id, user_id, filename, original_filename, format, status,
-		       error_message, bundle_size, concept_count, created_at, updated_at, completed_at
+		       error_message, bundle_size, concept_count,
+		       validation_status, validation_warnings,
+		       created_at, updated_at, completed_at
 		FROM jobs WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := d.conn.Query(query, userID)
 	if err != nil {
@@ -156,9 +169,13 @@ func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 		var errMsg sql.NullString
 		var completedAt sql.NullTime
 		var parentJobID sql.NullString
+		var validationStatus sql.NullString
+		var validationWarnings []byte
 		err := rows.Scan(
 			&j.ID, &parentJobID, &j.UserID, &j.Filename, &j.OriginalFilename, &j.Format, &j.Status,
-			&errMsg, &j.BundleSize, &j.ConceptCount, &j.CreatedAt, &j.UpdatedAt, &completedAt,
+			&errMsg, &j.BundleSize, &j.ConceptCount,
+			&validationStatus, &validationWarnings,
+			&j.CreatedAt, &j.UpdatedAt, &completedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -171,6 +188,12 @@ func (d *DB) ListJobs(userID string) ([]*models.Job, error) {
 		}
 		if completedAt.Valid {
 			j.CompletedAt = &completedAt.Time
+		}
+		if validationStatus.Valid {
+			j.ValidationStatus = validationStatus.String
+		}
+		if len(validationWarnings) > 0 {
+			_ = json.Unmarshal(validationWarnings, &j.ValidationWarnings)
 		}
 		jobs = append(jobs, j)
 	}

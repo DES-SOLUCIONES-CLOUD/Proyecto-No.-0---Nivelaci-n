@@ -1,11 +1,122 @@
 package bundle
 
 import (
+	"archive/zip"
+	"bytes"
 	"strings"
 	"testing"
 
 	"okf-worker/converter"
 )
+
+// zipWith construye un ZIP en memoria con exactamente los archivos dados,
+// para probar Validate() contra bundles deliberadamente incompletos —
+// exactamente la condición verificable de la rúbrica: "ante la ausencia de
+// index.md o log.md, la validación falla, el bundle no se publica".
+func zipWith(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for name, content := range files {
+		f, err := w.Create(name)
+		if err != nil {
+			t.Fatalf("no se pudo crear %s en el ZIP: %v", name, err)
+		}
+		if _, err := f.Write([]byte(content)); err != nil {
+			t.Fatalf("no se pudo escribir %s en el ZIP: %v", name, err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("no se pudo cerrar el ZIP: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestValidate_InvalidWhenIndexMissing(t *testing.T) {
+	data := zipWith(t, map[string]string{
+		"log.md":         "# Log\n",
+		"concepto-01.md": "# Uno\n\nTexto.\n",
+	})
+	result, err := Validate(data, []converter.Unit{{Title: "Uno", Content: "Texto.", Slug: "concepto-01.md"}})
+	if err != nil {
+		t.Fatalf("Validate() falló: %v", err)
+	}
+	if result.Valid {
+		t.Error("un bundle sin index.md debería ser inválido")
+	}
+	if result.Status != StatusInvalid {
+		t.Errorf("Status = %q, se esperaba %q", result.Status, StatusInvalid)
+	}
+}
+
+func TestValidate_InvalidWhenLogMissing(t *testing.T) {
+	data := zipWith(t, map[string]string{
+		"index.md":       "# Índice\n\n1. [Uno](concepto-01.md)\n",
+		"concepto-01.md": "# Uno\n\nTexto.\n",
+	})
+	result, err := Validate(data, []converter.Unit{{Title: "Uno", Content: "Texto.", Slug: "concepto-01.md"}})
+	if err != nil {
+		t.Fatalf("Validate() falló: %v", err)
+	}
+	if result.Valid {
+		t.Error("un bundle sin log.md debería ser inválido")
+	}
+	if result.Status != StatusInvalid {
+		t.Errorf("Status = %q, se esperaba %q", result.Status, StatusInvalid)
+	}
+}
+
+func TestValidate_InvalidWhenNoConcepts(t *testing.T) {
+	data := zipWith(t, map[string]string{
+		"index.md": "# Índice\n\n(sin conceptos)\n",
+		"log.md":   "# Log\n",
+	})
+	result, err := Validate(data, nil)
+	if err != nil {
+		t.Fatalf("Validate() falló: %v", err)
+	}
+	if result.Valid {
+		t.Error("un bundle sin ningún concepto debería ser inválido")
+	}
+}
+
+func TestValidate_InvalidWhenIndexLinkIsBroken(t *testing.T) {
+	data := zipWith(t, map[string]string{
+		"index.md":       "# Índice\n\n1. [Uno](concepto-99-no-existe.md)\n",
+		"log.md":         "# Log\n",
+		"concepto-01.md": "# Uno\n\nTexto.\n",
+	})
+	result, err := Validate(data, []converter.Unit{{Title: "Uno", Content: "Texto.", Slug: "concepto-01.md"}})
+	if err != nil {
+		t.Fatalf("Validate() falló: %v", err)
+	}
+	if result.Valid {
+		t.Error("un bundle con un enlace roto en index.md debería ser inválido")
+	}
+}
+
+func TestValidate_ValidCompleteBundle(t *testing.T) {
+	// Dos conceptos: un solo concepto ya dispara por sí mismo la advertencia
+	// "documento breve" (comportamiento correcto, ver detectWarnings), así
+	// que para el caso 100% limpio se necesitan al menos dos.
+	data := zipWith(t, map[string]string{
+		"index.md":       "# Índice\n\n1. [Uno](concepto-01.md)\n2. [Dos](concepto-02.md)\n",
+		"log.md":         "# Log\n",
+		"concepto-01.md": "# Uno\n\nTexto normal y suficientemente largo para no disparar advertencias.\n",
+		"concepto-02.md": "# Dos\n\nOtro texto normal y suficientemente largo para no disparar advertencias.\n",
+	})
+	units := []converter.Unit{
+		{Title: "Uno", Content: "Texto normal y suficientemente largo para no disparar advertencias.", Slug: "concepto-01.md"},
+		{Title: "Dos", Content: "Otro texto normal y suficientemente largo para no disparar advertencias.", Slug: "concepto-02.md"},
+	}
+	result, err := Validate(data, units)
+	if err != nil {
+		t.Fatalf("Validate() falló: %v", err)
+	}
+	if !result.Valid || result.Status != StatusValid {
+		t.Errorf("bundle completo debería ser válido sin advertencias, resultado: %+v", result)
+	}
+}
 
 func TestIsSuspiciousText(t *testing.T) {
 	tests := []struct {

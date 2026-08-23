@@ -25,21 +25,24 @@ const (
 
 // Job representa un trabajo de conversión documental.
 type Job struct {
-	ID               string     `json:"id" db:"id"`
-	ParentJobID      *string    `json:"parent_job_id,omitempty" db:"parent_job_id"`
-	UserID           string     `json:"user_id" db:"user_id"`
-	Filename         string     `json:"filename" db:"filename"`
-	OriginalFilename string     `json:"original_filename" db:"original_filename"`
-	Format           string     `json:"format" db:"format"`
-	Status           JobStatus  `json:"status" db:"status"`
-	ErrorMessage     *string    `json:"error_message,omitempty" db:"error_message"`
-	OriginalPath     string     `json:"-" db:"original_path"`
-	BundlePath       string     `json:"-" db:"bundle_path"`
-	BundleSize       int64      `json:"bundle_size" db:"bundle_size"`
-	ConceptCount     int        `json:"concept_count" db:"concept_count"`
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
-	CompletedAt      *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	ID               string    `json:"id" db:"id"`
+	ParentJobID      *string   `json:"parent_job_id,omitempty" db:"parent_job_id"`
+	UserID           string    `json:"user_id" db:"user_id"`
+	Filename         string    `json:"filename" db:"filename"`
+	OriginalFilename string    `json:"original_filename" db:"original_filename"`
+	Format           string    `json:"format" db:"format"`
+	Status           JobStatus `json:"status" db:"status"`
+	ErrorMessage     *string   `json:"error_message,omitempty" db:"error_message"`
+	OriginalPath     string    `json:"-" db:"original_path"`
+	BundlePath       string    `json:"-" db:"bundle_path"`
+	BundleSize       int64     `json:"bundle_size" db:"bundle_size"`
+	ConceptCount     int       `json:"concept_count" db:"concept_count"`
+	// ValidationStatus: "valid" | "valid_with_warnings" | "invalid" (vacío si el job aún no completó).
+	ValidationStatus   string     `json:"validation_status,omitempty" db:"validation_status"`
+	ValidationWarnings []string   `json:"validation_warnings,omitempty" db:"validation_warnings"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 }
 
 // JobMessage es el mensaje publicado en Redis para el worker.
