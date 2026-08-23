@@ -261,23 +261,6 @@ func markdownHeaderTitle(trimmed string) (bool, string) {
 	return false, ""
 }
 
-// ─── Bloques de código indentados ───────────────────────────────────────────
-
-// isIndentedCodeLine reconoce una línea indentada con 4+ espacios o un tab.
-func isIndentedCodeLine(line string) bool {
-	return strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t")
-}
-
-// dedentCodeLine quita un nivel de indentación (4 espacios o un tab) de una
-// línea de código, preservando la indentación interna del código (p. ej. el
-// cuerpo de una función dentro del bloque).
-func dedentCodeLine(line string) string {
-	if strings.HasPrefix(line, "\t") {
-		return strings.TrimPrefix(line, "\t")
-	}
-	return strings.TrimPrefix(line, "    ")
-}
-
 // ─── Tablas ASCII ────────────────────────────────────────────────────────────
 
 // isTableBorderLine reconoce una línea de borde de tabla ASCII: "+---+---+".
