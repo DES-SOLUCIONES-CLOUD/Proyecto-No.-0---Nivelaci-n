@@ -5,14 +5,14 @@ services:
     container_name: okf_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-okf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-okfpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-okf}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-okf} -d ${POSTGRES_DB:-okf}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,8 +42,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
     volumes:
       - minio_data:/data
     ports:
@@ -63,8 +63,18 @@ services:
       dockerfile: Dockerfile
     container_name: okf_api
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      PORT: ${PORT:-8080}
+      GIN_MODE: ${GIN_MODE:-release}
+      POSTGRES_URL: ${POSTGRES_URL:-postgres://okf:okfpassword@postgres:5432/okf?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET_ORIGINALS: ${MINIO_BUCKET_ORIGINALS:-originals}
+      MINIO_BUCKET_BUNDLES: ${MINIO_BUCKET_BUNDLES:-bundles}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      JWT_SECRET: ${JWT_SECRET:-insecure-dev-jwt-secret-CHANGE-ME-in-production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +82,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - okf_network
 
@@ -80,9 +95,17 @@ services:
     build:
       context: ./worker
       dockerfile: Dockerfile
+    container_name: okf_worker
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      POSTGRES_URL: ${POSTGRES_URL:-postgres://okf:okfpassword@postgres:5432/okf?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET_ORIGINALS: ${MINIO_BUCKET_ORIGINALS:-originals}
+      MINIO_BUCKET_BUNDLES: ${MINIO_BUCKET_BUNDLES:-bundles}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,6 +113,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep worker-server || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - okf_network
 
@@ -103,7 +131,13 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - okf_network
 

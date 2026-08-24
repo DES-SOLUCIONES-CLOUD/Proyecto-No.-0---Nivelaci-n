@@ -8,19 +8,20 @@ Plataforma web multiusuario que convierte documentos a **bundles de conocimiento
 
 ## 🚀 Despliegue rápido (un solo comando)
 
+El único comando requerido para levantar el sistema completo es `docker compose up --build`. **No es necesario crear ningún archivo `.env` ni exportar variables**: todas las variables de entorno tienen valores por defecto funcionales definidos directamente en `docker-compose.yml`.
+
 ```bash
 # Clona el repositorio
 git clone <url-del-repositorio>
-cd proyecto-okf
+cd Proyecto-No.-0---Nivelaci-n   # o el nombre de la carpeta donde clonaste el repo
 
-# Copia y ajusta variables de entorno (opcional)
-cp .env.example .env
-
-# ¡Levanta todo el sistema!
+# ¡Levanta todo el sistema! (sin pasos previos)
 docker compose up --build
 ```
 
 Accede a la plataforma en: **http://localhost**
+
+> 💡 **Personalizar la configuración (opcional):** si quieres usar credenciales distintas a las de desarrollo, copia `cp .env.example .env`, edita los valores y vuelve a ejecutar `docker compose up --build`. Docker Compose carga automáticamente el `.env` de la raíz del proyecto y sus valores sobrescriben los defaults. Ver la tabla de variables más abajo.
 
 ---
 
@@ -53,7 +54,7 @@ Nginx :80 (Frontend HTML/CSS/JS + proxy reverso)
 
 | Servicio | Imagen | Puerto | Descripción |
 |---|---|---|---|
-| `frontend` | Nginx + build Go | 80 | Frontend + proxy a la API |
+| `frontend` | nginx:alpine | 80 | Frontend + proxy a la API |
 | `api` | Go (multi-stage) | 8080 (interno) | API REST sin estado |
 | `worker` | Go (multi-stage) | — | Worker de conversión |
 | `postgres` | postgres:16-alpine | 5432 (interno) | Base de datos de metadatos |
@@ -68,7 +69,7 @@ Nginx :80 (Frontend HTML/CSS/JS + proxy reverso)
 - [x] Registro y autenticación con JWT
 - [x] Carga de documentos con respuesta inmediata (job_id)
 - [x] Encolamiento en Redis Streams + workers independientes
-- [x] Segmentación por encabezados (Markdown, HTML, texto plano)
+- [x] Segmentación por encabezados (Markdown, HTML, texto plano, PDF, DOCX)
 - [x] Generación de bundle: `index.md`, `log.md`, conceptos
 - [x] Validación de bundle antes de publicación
 - [x] Consulta de estado y descarga del bundle (ZIP)
@@ -77,11 +78,16 @@ Nginx :80 (Frontend HTML/CSS/JS + proxy reverso)
 - [x] Despliegue con un solo comando
 
 ### Formatos de entrada soportados
+
+El enunciado exigía soportar al menos un formato con estructura detectable (encabezados). La implementación va más allá del mínimo y soporta **cinco formatos**, incluyendo dos formatos binarios (PDF, DOCX) que requieren extracción de contenido antes de segmentar.
+
 | Formato | Segmentación |
 |---|---|
 | Markdown (`.md`) | Por encabezados `#`, `##`, `###` |
 | HTML (`.html`, `.htm`) | Por etiquetas `<h1>`, `<h2>`, `<h3>` |
 | Texto plano (`.txt`) | Por MAYÚSCULAS, líneas con ":", bloques |
+| PDF (`.pdf`) | Texto extraído con `pdftotext` (poppler-utils) en orden de lectura. Se agrupan las páginas bajo el encabezado numerado que las inicia (p. ej. `1. Introducción`, `12) Conclusiones`); si el documento no tiene encabezados numerados, se genera una unidad por página fusionando las páginas muy cortas. Un PDF sin texto seleccionable (escaneado) produce un único concepto de aviso en vez de fallar. |
+| Word (`.docx`) | Párrafos extraídos del XML interno (`word/document.xml`) y agrupados por los estilos de encabezado de Word (`Heading1/2/3`, `Título`, `H1`/`H2`/`H3`); si el documento no usa estilos de encabezado, todo el contenido se publica como un único concepto. |
 
 ---
 
@@ -102,30 +108,26 @@ Nginx :80 (Frontend HTML/CSS/JS + proxy reverso)
 
 ## 🔧 Variables de configuración
 
-Copia `.env.example` a `.env` y ajusta según necesidad:
+Todas las variables tienen un valor por defecto embebido en `docker-compose.yml` (sintaxis `${VAR:-default}`), por lo que el sistema arranca sin ningún archivo `.env`. Si quieres personalizarlas, copia `.env.example` a `.env`, edita lo que necesites y vuelve a ejecutar `docker compose up --build` — Compose carga automáticamente el `.env` de la raíz del proyecto y sus valores sobrescriben los defaults.
 
-```env
-# PostgreSQL
-POSTGRES_USER=okf
-POSTGRES_PASSWORD=okfpassword
-POSTGRES_DB=okf
+| Variable | Valor por defecto | Propósito |
+|---|---|---|
+| `POSTGRES_USER` | `okf` | Usuario de PostgreSQL |
+| `POSTGRES_PASSWORD` | `okfpassword` | Contraseña de PostgreSQL |
+| `POSTGRES_DB` | `okf` | Nombre de la base de datos |
+| `POSTGRES_URL` | `postgres://okf:okfpassword@postgres:5432/okf?sslmode=disable` | Cadena de conexión usada por `api` y `worker` (debe coincidir con las tres variables anteriores) |
+| `REDIS_URL` | `redis://redis:6379` | Conexión a Redis (cola de mensajes) |
+| `MINIO_ENDPOINT` | `minio:9000` | Host:puerto interno de MinIO |
+| `MINIO_ACCESS_KEY` | `minioadmin` | Access key de MinIO (= `MINIO_ROOT_USER`) |
+| `MINIO_SECRET_KEY` | `minioadmin123` | Secret key de MinIO (= `MINIO_ROOT_PASSWORD`) |
+| `MINIO_BUCKET_ORIGINALS` | `originals` | Bucket para documentos originales |
+| `MINIO_BUCKET_BUNDLES` | `bundles` | Bucket para bundles generados |
+| `MINIO_USE_SSL` | `false` | Si la conexión a MinIO usa TLS |
+| `JWT_SECRET` | `insecure-dev-jwt-secret-CHANGE-ME-in-production` | Firma de tokens JWT |
+| `PORT` | `8080` | Puerto interno del servidor de la API |
+| `GIN_MODE` | `release` | Modo del framework Gin (`release` silencia el banner de debug) |
 
-# Redis
-REDIS_URL=redis://redis:6379
-
-# MinIO (almacenamiento de objetos)
-MINIO_ENDPOINT=minio:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin123
-
-# JWT (cambiar en producción)
-JWT_SECRET=your-super-secret-jwt-key
-
-# API
-PORT=8080
-```
-
-> **⚠️ Importante:** Nunca subas el `.env` con credenciales reales al repositorio.
+> **⚠️ Importante — `JWT_SECRET`:** el valor por defecto es **inseguro a propósito** y solo sirve para desarrollo local. En cualquier despliegue real (staging, producción, evaluación con datos sensibles) debes definir tu propio `JWT_SECRET` mediante `.env`. Nunca subas un `.env` con credenciales reales al repositorio (ya está excluido en `.gitignore`).
 
 ---
 
@@ -208,7 +210,7 @@ curl http://localhost/api/jobs/<job-id-de-A> \
 ## 📂 Estructura del repositorio
 
 ```
-proyecto-okf/
+Proyecto-No.-0---Nivelaci-n/
 ├── docker-compose.yml
 ├── .env.example
 ├── README.md
